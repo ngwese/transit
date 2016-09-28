@@ -1,0 +1,52 @@
+module name: "transit"
+
+switch models
+
+- constant hi res time base
+- each output is a "gate", having
+  - length
+	- delay (start point)
+	- width (duration)
+	- end action (loop, one shot)
+
+- 
+
+
+////
+
+core clock mech => phasor
+
+int phasor_init(freq, divisions);
+- does the math to trigger the cb division times per cycle
+- freq is in hertz
+
+bool phasor_set_callback(phasor_callback_t *cb);
+
+typedef void (phasor_callback_t)(u8 now);
+
+phasor_start(), stop(), reset()
+
+////
+
+rhythm seq
+==============
+
+4 tracks (4 outs + aux out)
+
+clips
++ one shot, looping, advance next, advance to N
++ euclidian rhythms?
+
+clock modes
++ always running? only when playing
+
+
++ clip record?
++ clip program?
+
+
+// grid as a collection of rhythmic clips, each pad can be a different clip
+
+clips have:
+- duration
+- follow action (relative direction, absolut
