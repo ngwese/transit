@@ -28,6 +28,8 @@ static void handler_GridTrNormal(s32 data);
 // copy of nvram state for editing
 static grid_state_t grid_state;
 
+
+
 void enter_mode_grid(void) {
 	print_dbg("\r\n> mode grid");
 	grid_state = f.grid_state;

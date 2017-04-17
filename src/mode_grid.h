@@ -1,7 +1,13 @@
 #pragma once
 
+#include "step.h"
+#include "track.h"
+#include "pattern.h"
+#include "scene.h"
+
 // grid mode values saved to nvram
 typedef struct {
+	scene_t scene;
 	uint32_t clock_period;
 } grid_state_t;
 
