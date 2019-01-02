@@ -67,6 +67,7 @@ CSRCS = \
        ../src/mode_midi.c                                 \
        ../src/mode_div.c                                  \
        ../libavr32/src/adc.c                              \
+       ../libavr32/src/distort.c                          \
        ../libavr32/src/events.c                           \
        ../libavr32/src/i2c.c                              \
        ../libavr32/src/init_common.c                      \
@@ -86,6 +87,7 @@ CSRCS = \
        ../libavr32/src/usb/midi/uhi_midi.c                \
        ../libavr32/src/usb/midi/midi.c                    \
        ../libavr32/src/usb/msc/msc.c                      \
+       ../libavr32/src/libfixmath/fix16.c                 \
        avr32/drivers/adc/adc.c                            \
        avr32/drivers/flashc/flashc.c                      \
        avr32/drivers/gpio/gpio.c                          \
