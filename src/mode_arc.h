@@ -2,7 +2,7 @@
 
 // arc mode values saved to nvram
 typedef struct {
-	u16 clock_rate;
+  u16 clock_rate;
 } arc_state_t;
 
 void enter_mode_arc(void);

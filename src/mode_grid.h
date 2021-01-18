@@ -2,7 +2,7 @@
 
 // grid mode values saved to nvram
 typedef struct {
-	uint32_t clock_period;
+  uint32_t clock_period;
 } grid_state_t;
 
 void enter_mode_grid(void);

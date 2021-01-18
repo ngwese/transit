@@ -2,7 +2,7 @@
 
 // midi mode values saved to nvram
 typedef struct {
-	uint32_t clock_period;
+  uint32_t clock_period;
 } midi_state_t;
 
 void enter_mode_midi(void);

@@ -2,10 +2,10 @@
 
 #include "timers.h"
 
-#include "mode_grid.h"
 #include "mode_arc.h"
-#include "mode_midi.h"
 #include "mode_div.h"
+#include "mode_grid.h"
+#include "mode_midi.h"
 
 #define TR1 B02
 #define TR2 B03
@@ -19,32 +19,25 @@
 ////////////////////////////////////////////////////////////////////////////////
 // types
 
-typedef enum {
-	conNONE,
-	conARC,
-	conGRID,
-	conMIDI,
-	conFLASH
-} connected_t;
+typedef enum { conNONE, conARC, conGRID, conMIDI, conFLASH } connected_t;
 
 typedef enum {
-	mGrid,
-	mArc,
-	mMidi,
-	mDiv,
+  mGrid,
+  mArc,
+  mMidi,
+  mDiv,
 } transit_mode_t;
 
 // NVRAM data structure located in the flash array.
 typedef const struct {
-	u8 fresh;
-	connected_t connected;
-	transit_mode_t mode;
-	grid_state_t grid_state;
-	arc_state_t arc_state;
-	midi_state_t midi_state;
-	div_state_t div_state;
+  u8 fresh;
+  connected_t connected;
+  transit_mode_t mode;
+  grid_state_t grid_state;
+  arc_state_t arc_state;
+  midi_state_t midi_state;
+  div_state_t div_state;
 } nvram_data_t;
-
 
 ////////////////////////////////////////////////////////////////////////////////
 // globals
