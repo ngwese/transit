@@ -64,3 +64,8 @@
 # config.mk file.
 MAKEFILE_PATH = ../libavr32/asf/avr32/utils/make/Makefile.avr32.in
 include $(MAKEFILE_PATH)
+
+format:
+	clang-format -i *.h *.c
+
+PHONY: format
