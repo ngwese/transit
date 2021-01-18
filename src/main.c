@@ -517,7 +517,7 @@ int main(void)
 	init_midi();
 	init_div();
 
-	init_i2c_slave(0x30);
+	init_i2c_follower(0x30);
 	process_ii = &ii_null;
 
 	for (u8 i = 0; i < 8; i++) {
