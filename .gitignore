@@ -1,3 +1,5 @@
+src/gitversion.c
+
 .DS_Store
 *.zip
 

@@ -42,6 +42,8 @@
 #include "mode_grid.h"
 #include "mode_midi.h"
 
+#include "gitversion.h"
+
 #define FIRSTRUN_KEY 0x22
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -476,6 +478,8 @@ int main(void) {
   init_phasor();
 
   print_dbg("\r\n\n// transit //////////////////////////////// ");
+  print_dbg("\r\n   ");
+  print_dbg(git_version);
   print_dbg("\r\n   flash struct size: ");
   print_dbg_ulong(sizeof(f));
 
