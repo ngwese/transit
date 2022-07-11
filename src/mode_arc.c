@@ -489,7 +489,7 @@ static void arc_draw_clock(void) {
 }
 
 static void render_arc(void) {
-  memset(monomeLedBuffer, 0, sizeof(monomeLedBuffer));
+  memset(monomeLedBuffer, 0, MONOME_MAX_LED_BYTES);
 
   if (ui_mode == uiPlay)
     arc_draw_gate(selection);

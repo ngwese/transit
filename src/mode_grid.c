@@ -5,6 +5,7 @@
 #include "events.h"
 #include "flashc.h"
 #include "i2c.h"
+#include "monome.h"
 
 // this
 #include "main.h"
@@ -21,6 +22,9 @@ static void handler_GridFrontLong(s32 data);
 static void handler_GridTr(s32 data);
 static void handler_GridTrNormal(s32 data);
 
+static void handler_DebugGridKey(s32 data);
+static void handler_DebugGridRefresh(s32 data);
+
 //-----------------------------
 //----- globals
 
@@ -33,6 +37,8 @@ void enter_mode_grid(void) {
 
   app_event_handlers[kEventTr] = &handler_GridTr;
   app_event_handlers[kEventTrNormal] = &handler_GridTrNormal;
+  app_event_handlers[kEventMonomeGridKey] = &handler_DebugGridKey;
+  app_event_handlers[kEventMonomeRefresh] = &handler_DebugGridRefresh;
 
   clock_set(grid_state.clock_period);
 
@@ -102,4 +108,20 @@ void clock_grid(uint8_t phase) {
 }
 
 void ii_grid(uint8_t *d, uint8_t l) {
+}
+
+void handler_DebugGridKey(s32 data) {
+  u8 x, y, z;
+  monome_grid_key_parse_event_data(data, &x, &y, &z);
+  print_dbg("\r\n key x: ");
+  print_dbg_ulong(x);
+  print_dbg(" y: ");
+  print_dbg_ulong(y);
+  print_dbg(" z: ");
+  print_dbg_ulong(z);
+
+  monomeFrameDirty++;
+}
+
+void handler_DebugGridRefresh(s32 data) {
 }
