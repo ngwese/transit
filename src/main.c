@@ -19,6 +19,7 @@
 
 // libavr32
 #include "adc.h"
+#include "cdc.h"
 #include "events.h"
 #include "ftdi.h"
 #include "i2c.h"
@@ -32,7 +33,6 @@
 #include "twi.h"
 #include "types.h"
 #include "util.h"
-#include "cdc.h"
 
 // this
 #include "conf_board.h"
@@ -388,7 +388,7 @@ static inline void assign_main_event_handlers(void) {
   app_event_handlers[kEventMidiConnect] = &handler_MidiConnect;
   app_event_handlers[kEventMidiDisconnect] = &handler_MidiDisconnect;
   app_event_handlers[kEventMidiPacket] = &handler_None;
-  app_event_handlers[kEventSerialConnect]	= &handler_SerialConnect;
+  app_event_handlers[kEventSerialConnect] = &handler_SerialConnect;
   app_event_handlers[kEventSerialDisconnect] = &handler_FtdiDisconnect;
 }
 

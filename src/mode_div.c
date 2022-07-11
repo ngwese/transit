@@ -23,6 +23,7 @@ static void handler_DivClockExt(s32 data);
 static void handler_DivClockNormal(s32 data);
 
 static void pulse_div(uint8_t phase);
+static void reset_div(void);
 
 //-----------------------------
 //----- globals
@@ -31,6 +32,15 @@ static void pulse_div(uint8_t phase);
 static div_state_t div_state;
 static u8 div_value[8];
 static u8 div_counter[8];
+
+typedef struct {
+  u8 playing : 1;
+  u8 should_transition : 1;
+  u8 should_reset : 1;
+  u8 ignore_next_short : 1;
+} div_run_state_t;
+
+static div_run_state_t div_run_state;
 
 void enter_mode_div(void) {
   print_dbg("\r\n> mode div");
@@ -60,13 +70,33 @@ void leave_mode_div(void) {
 ///// handlers
 
 void handler_DivFrontShort(s32 data) {
-  print_dbg("\r\n div: front short ");
+  print_dbg("\r\n short ");
   print_dbg_ulong(data);
+
+  if (div_run_state.ignore_next_short) {
+    print_dbg("\r\n ignoring short after long");
+    div_run_state.ignore_next_short = false;
+    return;
+  }
+
+  if (div_run_state.playing) {
+    div_run_state.should_transition = true;
+    print_dbg("\r\n going to pause");
+  } else {
+    div_run_state.playing = true;
+    div_run_state.should_transition = false;
+    print_dbg("\r\n starting");
+  }
 }
 
 void handler_DivFrontLong(s32 data) {
-  print_dbg("\r\n div: front long");
+  print_dbg("\r\n long ");
   print_dbg_ulong(data);
+  if (!div_run_state.should_reset) {
+    div_run_state.should_reset = true;
+    div_run_state.ignore_next_short = true;
+    print_dbg("\r\n going to reset");
+  }
 }
 
 void handler_DivClockExt(s32 data) {
@@ -77,6 +107,11 @@ void handler_DivClockExt(s32 data) {
 
 void handler_DivClockNormal(s32 data) {
   external_clock = data != 0;
+
+  // automatically toggle play mode on when a jack is inserted
+  if (external_clock) {
+    div_run_state.playing = true;
+  }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -97,10 +132,18 @@ void write_div(void) {
 void read_div(void) {
 }
 
-void init_div(void) {
+void reset_div(void) {
   for (u8 i = 0; i < 8; i++) {
     div_counter[i] = div_value[i] = i + 1;
   }
+}
+
+void init_div(void) {
+  div_run_state.playing = false;
+  div_run_state.should_transition = false;
+  div_run_state.should_reset = false;
+  div_run_state.ignore_next_short = false;
+  reset_div();
 }
 
 void resume_div(void) {
@@ -115,8 +158,17 @@ void clock_div(uint8_t phase) {
 void pulse_div(uint8_t phase) {
   u8 i;
 
+  if (!div_run_state.playing)
+    return;
+
   if (phase) {
     gpio_set_gpio_pin(B10);
+
+    if (div_run_state.should_reset) {
+      reset_div();
+      div_run_state.should_reset = false;
+    }
+
     for (i = 0; i < 8; i++) {
       if (div_counter[i] == div_value[i]) {
         set_tr(i);
@@ -133,6 +185,11 @@ void pulse_div(uint8_t phase) {
       if (div_counter[i] == 0) {
         div_counter[i] = div_value[i];
       }
+    }
+    // check to see if we need to pause
+    if (div_run_state.playing && div_run_state.should_transition) {
+      div_run_state.playing = false;
+      div_run_state.should_transition = false;
     }
   }
 }
