@@ -25,6 +25,8 @@ static void handler_DivClockNormal(s32 data);
 static void pulse_div(uint8_t phase);
 static void reset_div(void);
 
+static void clr_tr_all(void);
+
 //-----------------------------
 //----- globals
 
@@ -111,6 +113,9 @@ void handler_DivClockNormal(s32 data) {
   // automatically toggle play mode on when a jack is inserted
   if (external_clock) {
     div_run_state.playing = true;
+    reset_div();
+    clr_tr_all();
+    gpio_clr_gpio_pin(B10);
   }
 }
 
@@ -138,12 +143,23 @@ void reset_div(void) {
   }
 }
 
+void clr_tr_all(void) {
+  for (u8 i = 0; i < 8; i++) {
+    clr_tr(i);
+  }
+}
+
 void init_div(void) {
   div_run_state.playing = false;
   div_run_state.should_transition = false;
   div_run_state.should_reset = false;
   div_run_state.ignore_next_short = false;
+
   reset_div();
+  clr_tr_all();
+  // weirdly the clock output ends up in a half high state on power up, clear it
+  // here to minimize the chance of partly triggering downstream modules
+  gpio_clr_gpio_pin(B10);
 }
 
 void resume_div(void) {
