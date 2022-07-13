@@ -24,6 +24,10 @@
 - [ ] note priority (in 2 track mode)
 - [ ] clock in is reset or manually advance track 2
 
+## edit interaction
+
+- [ ] if one track is shorter than the other show a ghosted version of the
+      repeated trigs on other pages
 ## performance interaction
 
 - [ ] press for fill
@@ -34,4 +38,3 @@
 - [ ] reset by ii
 - [ ] end of cycle tr
 - [ ] quantized switch of pattern
-

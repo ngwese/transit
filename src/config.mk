@@ -66,7 +66,10 @@ CSRCS = \
        ../src/mode_arc.c                                  \
        ../src/mode_midi.c                                 \
        ../src/mode_div.c                                  \
+       ../src/mode_common.c                               \
        ../src/gitversion.c                                \
+       ../src/playhead.c                                  \
+       ../src/track.c                                     \
        ../libavr32/src/adc.c                              \
        ../libavr32/src/distort.c                          \
        ../libavr32/src/euclidean/data.c                   \

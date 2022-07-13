@@ -39,20 +39,7 @@
 // this
 #include "main.h"
 #include "mode_arc.h"
-
-#define L1 2
-#define L2 4
-#define L3 10
-#define L4 15
-
-#define PPQ 64
-#define MAX_PHASE (PPQ - 1) // phasor range [0-63] (PPQ-1)
-#define MAX_WIDTH (PPQ - 1)
-#define MAX_PERIOD PPQ
-
-#define MAX_DIVISOR 16
-
-#define MAX_PHASOR_HZ 1280
+#include "mode_common.h"
 
 //------------------------------
 //------ types
@@ -112,8 +99,6 @@ static void enc_do_play(u8 n, s8 delta);
 static void enc_do_config(u8, s8 delta);
 static void enc_set_acc_play(u8 selection);
 static void enc_set_acc_config(u8 selection);
-
-static u16 calc_clock_frequency(u16 rate);
 
 // callback for phasor
 static void process_outputs(u8 now, bool reset);
@@ -334,11 +319,6 @@ static void reset_all_outputs(void) {
   for (u8 i = 0; i < 8; i++) {
     reset_output(i);
   }
-}
-
-static u16 calc_clock_frequency(u16 rate) {
-  // assumes rate [0-1280]
-  return rate + 8; // 8hz - 1288khz
 }
 
 static void enc_set_acc_play(u8 selection) {

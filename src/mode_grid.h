@@ -1,8 +1,17 @@
+//
+// Copyright (c) 2016-2022 Greg Wuller.
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
+//
+
 #pragma once
+
+#include "track.h"
 
 // grid mode values saved to nvram
 typedef struct {
-  uint32_t clock_period;
+  // uint32_t clock_period;
+  u16 clock_rate;
 } grid_state_t;
 
 void enter_mode_grid(void);
