@@ -46,7 +46,7 @@ static void handler_GridTr(s32 data);
 static void handler_GridTrNormal(s32 data);
 
 static void handler_DebugGridKey(s32 data);
-static void handler_DebugGridRefresh(s32 data);
+static void handler_GridRefresh(s32 data);
 
 static void render_grid(void);
 
@@ -60,7 +60,6 @@ static track_t track[2];
 static track_view_t view[2];
 static playhead_t playhead[2];
 static u16 clock_hz;
-static u16 render_dirty;
 
 // copy of nvram state for editing
 static grid_state_t grid_state;
@@ -72,7 +71,7 @@ void enter_mode_grid(void) {
   app_event_handlers[kEventTr] = &handler_GridTr;
   app_event_handlers[kEventTrNormal] = &handler_GridTrNormal;
   app_event_handlers[kEventMonomeGridKey] = &handler_DebugGridKey;
-  app_event_handlers[kEventMonomeRefresh] = &handler_DebugGridRefresh;
+  app_event_handlers[kEventMonomeRefresh] = &handler_GridRefresh;
 
   ui_mode = uiEdit;
 
@@ -88,6 +87,8 @@ void enter_mode_grid(void) {
   }
 
   clock_hz = calc_clock_frequency(grid_state.clock_rate);
+  print_dbg("\r\n clock_hz = ");
+  print_dbg_ulong(clock_hz);
   phasor_set_callback(&process_phasor);
   phasor_setup(clock_hz, PPQ);
   phasor_start();
@@ -127,11 +128,13 @@ void keytimer_grid(void) {
 }
 
 void default_grid(void) {
+  print_dbg("\r\ndefault_grid()");
   // flashc_memset32((void *)&(f.grid_state.clock_period), 100, 4, true);
   flashc_memset16((void *)&(f.grid_state.clock_rate), 640, 2, true);
 }
 
 void write_grid(void) {
+  print_dbg("\r\nwrite_grid()");
   // flashc_memset32((void *)&(f.grid_state.clock_period), grid_state.clock_period,
   //                 4, true);
   flashc_memset16((void *)&(f.grid_state.clock_rate), grid_state.clock_rate, 2,
@@ -139,22 +142,23 @@ void write_grid(void) {
 }
 
 void read_grid(void) {
+  print_dbg("\r\nread_grid()");
   grid_state = f.grid_state;
 }
 
 void init_grid(void) {
+  print_dbg("\r\ninint_grid()");
   track_init(&track[0]);
   track_init(&track[1]);
   playhead_init(&playhead[0]);
   playhead_init(&playhead[1]);
   track_view_init(&view[0], &track[0], &playhead[0]);
   track_view_init(&view[1], &track[1], &playhead[1]);
-
-  render_dirty++;
 }
 
 void resume_grid(void) {
-  render_dirty++;
+  print_dbg("\r\nresume_grid()");
+  monomeFrameDirty++;
 }
 
 
@@ -174,7 +178,14 @@ void handler_DebugGridKey(s32 data) {
   monomeFrameDirty++;
 }
 
-void handler_DebugGridRefresh(s32 data) {
+void handler_GridRefresh(s32 data) {
+  // print_dbg("\r\nhandler_GridRefresh");
+  if (monomeFrameDirty) {
+    render_grid();
+    monome_set_quadrant_flag(0);
+    monome_set_quadrant_flag(1);
+    (*monome_refresh)();
+  }
 }
 
 //
@@ -186,6 +197,7 @@ static void render_grid(void) {
   memset(monomeLedBuffer, 0, MONOME_MAX_LED_BYTES);
 
   if (ui_mode == uiEdit) {
+    // print_dbg("\r\nuiEdit");
     track_view_render(&view[0], 0, /* show_playhead */ true);
     track_view_render(&view[1], 3, /* show_playhead */ true);
     // TODO: render controls
@@ -196,11 +208,15 @@ static void render_grid(void) {
   }
 }
 
+static u32 nowc = 0;
+
 static void process_phasor(u8 now, bool reset) {
   if (now == 0) {
+    // print_dbg("\r\nnow ");
+    // print_dbg_ulong(nowc);
     playhead_advance(&playhead[0]);
     playhead_advance(&playhead[1]);
-    render_dirty++;
+    monomeFrameDirty++;
 
     // clock out high
     gpio_set_gpio_pin(B10);

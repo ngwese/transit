@@ -23,6 +23,8 @@
 
 #define MAX_PHASOR_HZ 1280
 
+#define GRID_WIDTH 16
+#define GRID_HEIGHT 8
 
 u16 calc_clock_frequency(u16 rate);
 

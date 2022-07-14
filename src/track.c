@@ -52,12 +52,16 @@ void track_view_init(track_view_t* v, track_t* t, playhead_t* p) {
     v->page = 0;
     v->track = t;
     v->playhead = p;
+
+    // FIXME: hack
+    p->max = t->length;
 }
 
 void track_view_render(track_view_t* v, u8 top_row, bool show_playhead) {
     track_t* t = v->track;
     u8 view_start = v->page * PAGE_SIZE;
     u8 view_max = min(t->length - view_start, PAGE_SIZE);
+    u8 top_offset = top_row * GRID_WIDTH;
 
     // playhead
     if (show_playhead) {
@@ -65,7 +69,7 @@ void track_view_render(track_view_t* v, u8 top_row, bool show_playhead) {
         if (l >= view_start && l < view_start + PAGE_SIZE) {
             l -= view_start;
             for (u8 v = 0; v < VOICE_COUNT; v++) {
-                monomeLedBuffer[top_row * PAGE_SIZE * v + l] = L2;
+                monomeLedBuffer[top_offset + (v * GRID_WIDTH) + l] = L2;
             }
             monomeFrameDirty++;
         }
@@ -77,7 +81,7 @@ void track_view_render(track_view_t* v, u8 top_row, bool show_playhead) {
             step_t* s = &(t->step[view_start + i]);
             for (u8 v = 0; v < VOICE_COUNT; v++) {
                 if (s->voice[v].value) {
-                    monomeLedBuffer[top_row * PAGE_SIZE * v + i] = L3;
+                    monomeLedBuffer[top_offset + (v * GRID_WIDTH) + i] = L3;
                 }
             }
         }
