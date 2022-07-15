@@ -83,18 +83,6 @@ void track_view_render(track_view_t *v, u8 top_row, bool show_playhead) {
   u8 view_max = min(t->length - view_start, PAGE_SIZE);
   u8 top_offset = top_row * GRID_WIDTH;
 
-  // playhead
-  if (show_playhead) {
-    u8 l = playhead_position(v->playhead);
-    if (l >= view_start && l < view_start + PAGE_SIZE) {
-      l -= view_start;
-      for (u8 v = 0; v < VOICE_COUNT; v++) {
-        monomeLedBuffer[top_offset + (v * GRID_WIDTH) + l] = L2;
-      }
-      monomeFrameDirty++;
-    }
-  }
-
   // steps
   if (view_max > 0) {
     for (u8 i = 0; i < view_max; i++) {
@@ -106,5 +94,17 @@ void track_view_render(track_view_t *v, u8 top_row, bool show_playhead) {
       }
     }
     monomeFrameDirty++;
+  }
+
+  // playhead
+  if (show_playhead) {
+    u8 l = playhead_position(v->playhead);
+    if (l >= view_start && l < view_start + PAGE_SIZE) {
+      l -= view_start;
+      for (u8 v = 0; v < VOICE_COUNT; v++) {
+        monomeLedBuffer[top_offset + (v * GRID_WIDTH) + l] += L2;
+      }
+      monomeFrameDirty++;
+    }
   }
 }
