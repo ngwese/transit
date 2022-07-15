@@ -15,7 +15,11 @@
 #define L4 15
 
 #define PPQ 64
+
+#define MIN_PHASE 0
+#define MID_PHASE 31
 #define MAX_PHASE (PPQ - 1) // phasor range [0-63] (PPQ-1)
+
 #define MAX_WIDTH (PPQ - 1)
 #define MAX_PERIOD PPQ
 
@@ -27,5 +31,3 @@
 #define GRID_HEIGHT 8
 
 u16 calc_clock_frequency(u16 rate);
-
-

@@ -442,6 +442,12 @@ void clr_tr(uint8_t n) {
   gpio_clr_gpio_pin(outs[n]);
 }
 
+void clr_tr_all(void) {
+  for (u8 i = 0; i < 8; i++) {
+    clr_tr(i);
+  }
+}
+
 uint8_t get_tr(uint8_t n) {
   return gpio_get_pin_value(outs[n]);
 }

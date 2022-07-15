@@ -25,8 +25,6 @@ static void handler_DivClockNormal(s32 data);
 static void pulse_div(uint8_t phase);
 static void reset_div(void);
 
-static void clr_tr_all(void);
-
 //-----------------------------
 //----- globals
 
@@ -140,12 +138,6 @@ void read_div(void) {
 void reset_div(void) {
   for (u8 i = 0; i < 8; i++) {
     div_counter[i] = div_value[i] = i + 1;
-  }
-}
-
-void clr_tr_all(void) {
-  for (u8 i = 0; i < 8; i++) {
-    clr_tr(i);
   }
 }
 

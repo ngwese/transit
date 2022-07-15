@@ -60,6 +60,7 @@ extern void clock_null(u8 phase);
 void set_mode(transit_mode_t m);
 void set_tr(uint8_t n);
 void clr_tr(uint8_t n);
+void clr_tr_all(void);
 uint8_t get_tr(uint8_t n);
 void clock_set(uint32_t n);
 void clock_set_tr(uint32_t n, uint8_t phase);

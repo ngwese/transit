@@ -24,6 +24,13 @@
 - [ ] note priority (in 2 track mode)
 - [ ] clock in is reset or manually advance track 2
 
+- [ ] per track random modulation with slewing of rate for rushing/dragging of triggers
+- [ ] each track tries to follow the rate of the other (not the primary rate)
+- [ ] adjustable frequency/magnitude of rate modulation
+- [ ] adjustable follow strength
+- [ ] use meter to perturb rate less around quarter notes? (stronger beat)
+- [ ] use voice; lower voice get perturbed less?
+
 ## edit interaction
 
 - [ ] if one track is shorter than the other show a ghosted version of the
