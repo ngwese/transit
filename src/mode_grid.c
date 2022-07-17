@@ -26,7 +26,7 @@
 //------------------------------
 //------ types
 
-typedef enum { uiEdit, uiPlay, uiConfig, uiLength } ui_mode_t;
+typedef enum { uiEdit, uiLength, uiPattern } ui_mode_t;
 
 typedef struct {
   u8 edges[8];
@@ -48,12 +48,16 @@ static void handler_GridKey(s32 data);
 static void handler_GridRefresh(s32 data);
 
 static void render_grid(void);
-static void render_page(void);
+static void render_nav(void);
 static void render_nudge(u8 x, u8 y);
-static void render_controls(void);
 
-static void render_waves(void);
 static void process_phasor(u8 now, bool reset);
+static void build_waves(void);
+
+static void handle_key_upper_step(u8 x, u8 y, u8 z);
+static void handle_key_upper_len(u8 x, u8 y, u8 z);
+static void handle_key_upper_pat(u8 x, u8 y, u8 z);
+static bool handle_key_control(u8 x, u8 y, u8 z);
 
 static void do_step_key(track_view_t *v, u8 x, u8 y, u8 z);
 static void do_len_key(track_view_t *v, u8 x, u8 y, u8 z);
@@ -187,112 +191,144 @@ void handler_GridKey(s32 data) {
   // print_dbg(" z: ");
   // print_dbg_ulong(z);
 
-  if (y <= 2) {
-    // first track
-    switch (ui_mode) {
-    case uiEdit:
-      do_step_key(&view[0], x, y, z);
-      break;
-
-    case uiLength:
-      do_len_key(&view[0], x, y, z);
-      break;
-
-    default:
-      break;
-    }
-  } else if (y <= 5) {
-    // second track
-    switch (ui_mode) {
-    case uiEdit:
-      do_step_key(&view[1], x, y - 3, z);
-      break;
-
-    case uiLength:
-      do_len_key(&view[1], x, y - 3, z);
-      break;
-
-    default:
-      break;
-    }
+  if (y >= 6) {
+    handle_key_control(x, y, z);
   } else {
-    // controls
-    if (x == 0) {
-      // select
-      if (y == 6) {
-        do_row_selection(z);
-      } else if (y == 7) {
-        do_step_selection(z);
-      }
-    } else if (x == 1 || x == 2) {
-      // page controls
-      if (row_selection || step_selection) {
-        ui_mode = z == 1 ? uiLength : uiEdit;
-      } else if (!row_selection && !step_selection && ui_mode == uiLength) {
-        // jump back to edit if select buttons are released
-        ui_mode = uiEdit;
-      } else {
-        if (z == 1) {
-          if (x == 1) {
-            if (y == 6) {
-              // first page
-              // print_dbg("\r\n page 1");
-              view[0].page = view[1].page = 0;
-            } else if (y == 7) {
-              // print_dbg("\r\n page 3");
-              view[0].page = view[1].page = 2;
-            }
-          } else if (x == 2) {
-            if (y == 6) {
-              // print_dbg("\r\n page 2");
-              view[0].page = view[1].page = 1;
-            } else if (y == 7) {
-              // print_dbg("\r\n page 4");
-              view[0].page = view[1].page = 3;
-            }
-          }
-        }
-      }
-    } else if (x == 3) {
-      // playhead nudge back
-      if (z == 1) {
-        if (y == 6) {
-          view[0].playhead->nudge = -1;
-        } else if (y == 7) {
-          view[1].playhead->nudge = -1;
-        }
-      }
-    } else if (x == 4) {
-      // playhead reset
-      if (z == 1) {
-        if (row_selection && step_selection && (y == 6 || y == 7)) {
-          print_dbg("\r\n reset both");
-          view[0].playhead->should_reset = view[1].playhead->should_reset = true;
-        } else if (row_selection && y == 6) {
-          // reset top track
-          print_dbg("\r\n reset top");
-          view[0].playhead->should_reset = true;
-        } else if (step_selection && y == 7) {
-          // reset bottom track
-          print_dbg("\r\n reset bottom");
-          view[1].playhead->should_reset = true;
-        }
-      }
-    } else if (x == 5) {
-      // playhead nudge forward
-      if (z == 1) {
-        if (y == 6) {
-          view[0].playhead->nudge = 1;
-        } else if (y == 7) {
-          view[1].playhead->nudge = 1;
-        }
-      }
+    switch (ui_mode) {
+    case uiEdit:
+      handle_key_upper_step(x, y, z);
+      break;
+
+    case uiLength:
+      handle_key_upper_len(x, y, z);
+      break;
+
+    case uiPattern:
+      handle_key_upper_pat(x, y, z);
+      break;
     }
   }
 }
 
+static void handle_key_upper_step(u8 x, u8 y, u8 z) {
+  if (y <= 2) {
+    // first track
+    do_step_key(&view[0], x, y, z);
+  } else if (y <= 5) {
+    // second track
+    do_step_key(&view[1], x, y - 3, z);
+  }
+}
+
+static void handle_key_upper_len(u8 x, u8 y, u8 z) {
+  if (y <= 2) {
+    // first track
+    do_len_key(&view[0], x, y, z);
+  } else if (y <= 5) {
+    // second track
+    do_len_key(&view[1], x, y - 3, z);
+  }
+}
+
+static void handle_key_upper_pat(u8 x, u8 y, u8 z) {
+  print_dbg("\r\n pattern key");
+}
+
+static bool handle_key_control(u8 x, u8 y, u8 z) {
+  // selection / meta controls
+  if (x == 0) {
+    if (y == 6) {
+      do_row_selection(z);
+      return true;
+    } else if (y == 7) {
+      do_step_selection(z);
+      return true;
+    }
+  }
+
+  // navigation
+  if (row_selection) {
+    if (y == 6) {
+      if (x == 1) {
+        // top left nav
+        ui_mode = z == 1 ? uiLength : uiEdit;
+        return true;
+      } else if (x == 2) {
+        // top right nav
+        ui_mode = z == 1 ? uiPattern : uiEdit;
+        return true;
+      }
+    } else if (y == 7) {
+      if (x == 1) {
+        // bottom left nav
+        return true;
+      } else if (x == 2) {
+        // bottom right nav
+        return true;
+      }
+    }
+  }
+
+  if (z == 1) {
+    if (x == 1) {
+      // left half of page select
+      if (y == 6) {
+        view[0].page = view[1].page = 0;
+        return true;
+      } else if (y == 7) {
+        view[0].page = view[1].page = 2;
+        return true;
+      }
+    } else if (x == 2) {
+      // right half of page select
+      if (y == 6) {
+        view[0].page = view[1].page = 1;
+        return true;
+      } else if (y == 7) {
+        view[0].page = view[1].page = 3;
+        return true;
+      }
+    } else if (x == 3) {
+      // playhead nudge back
+      if (y == 6) {
+        view[0].playhead->nudge = -1;
+        return true;
+      } else if (y == 7) {
+        view[1].playhead->nudge = -1;
+        return true;
+      }
+    } else if (x == 4) {
+      // playhead reset
+      if (row_selection && step_selection && (y == 6 || y == 7)) {
+        print_dbg("\r\n reset both");
+        view[0].playhead->should_reset = view[1].playhead->should_reset = true;
+        return true;
+      } else if (row_selection && y == 6) {
+        // reset top track
+        print_dbg("\r\n reset top");
+        view[0].playhead->should_reset = true;
+        return true;
+      } else if (step_selection && y == 7) {
+        // reset bottom track
+        print_dbg("\r\n reset bottom");
+        view[1].playhead->should_reset = true;
+        return true;
+      }
+    } else if (x == 5) {
+      // playhead nudge forward
+      if (y == 6) {
+        view[0].playhead->nudge = 1;
+        return true;
+      } else if (y == 7) {
+        view[1].playhead->nudge = 1;
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 void handler_GridRefresh(s32 data) {
-  // print_dbg("\r\nhandler_GridRefresh");
   if (monomeFrameDirty) {
     memset(monomeLedBuffer, 0, MONOME_MAX_LED_BYTES);
     render_grid();
@@ -311,27 +347,27 @@ static void render_grid(void) {
   case uiEdit:
     track_view_steps(&view[0], 0, /* show_playhead */ true);
     track_view_steps(&view[1], 3, /* show_playhead */ true);
-    render_controls();
+    render_nav();
+    render_nudge(3, 6);
+    render_nudge(3, 7);
     break;
 
   case uiLength:
     track_view_length(&view[0], 0);
     track_view_length(&view[1], 3);
-    render_controls();
+    render_nav();
     break;
 
-  case uiPlay:
-    break;
-
-  case uiConfig:
-    break;
+  case uiPattern:
+    // TODO: pattern view
+    render_nav();
 
   default:
     break;
   }
 }
 
-static void render_page(void) {
+static void render_nav(void) {
   u8 curr_page = view[0].page; // NOTE: assumes both track
   monomeLedBuffer[monome_xy_idx(1, 6)] = 0 == curr_page ? L2 : L1;
   monomeLedBuffer[monome_xy_idx(2, 6)] = 1 == curr_page ? L2 : L1;
@@ -346,13 +382,7 @@ static void render_nudge(u8 x, u8 y) {
   monomeLedBuffer[offset + 2] = L1;
 }
 
-static void render_controls(void) {
-  render_page();
-  render_nudge(3, 6);
-  render_nudge(3, 7);
-}
-
-static void render_waves(void) {
+static void build_waves(void) {
   memset(&waves, 0, sizeof(waves));
 
   u8 wn = 0;
@@ -378,7 +408,7 @@ static void process_phasor(u8 now, bool reset) {
     playhead_advance(&playhead[0]);
     playhead_advance(&playhead[1]);
     // calculate waveform; this could be too expensive
-    render_waves();
+    build_waves();
     break;
 
   case MID_PHASE:
