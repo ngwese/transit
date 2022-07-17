@@ -15,6 +15,8 @@ void playhead_init(playhead_t *p) {
   p->first = 0;
   p->max = TRACK_STEP_MAX;
   p->delta = 1;
+  p->nudge = 0;
+  p->should_reset = false;
 }
 
 u8 playhead_position(playhead_t *p) {
@@ -26,15 +28,25 @@ u8 playhead_advance(playhead_t *p) {
 }
 
 u8 playhead_move(playhead_t *p, s8 delta) {
-  // FIXME: make this work with jumps larger that TRACK_STEP_MAX (i.e. wrap
-  // multiple times)
-  s32 next = p->position + sclip(delta, -TRACK_STEP_MAX, TRACK_STEP_MAX);
-  if (next >= p->max) {
-    p->position = p->first + (next - p->max);
-  } else if (next < p->first) {
-    p->position = p->max - (p->first - next);
+  if (p->nudge) {
+    p->position = (p->position + p->nudge) % p->max;
+    p->nudge = 0;
+  }
+
+  if (p->should_reset) {
+    p->position = p->first;
+    p->should_reset = false;
   } else {
-    p->position = next;
+    // FIXME: make this work with jumps larger that TRACK_STEP_MAX (i.e. wrap
+    // multiple times)
+    s32 next = p->position + sclip(delta, -TRACK_STEP_MAX, TRACK_STEP_MAX);
+    if (next >= p->max) {
+      p->position = p->first + (next - p->max);
+    } else if (next < p->first) {
+      p->position = p->max - (p->first - next);
+    } else {
+      p->position = next;
+    }
   }
   return p->position;
 }

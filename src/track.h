@@ -67,4 +67,6 @@ typedef struct {
 } track_view_t;
 
 void track_view_init(track_view_t *v, track_t *t, playhead_t *p);
-void track_view_render(track_view_t *v, u8 top_row, bool show_playhead);
+void track_view_steps(track_view_t *v, u8 top_row, bool show_playhead);
+void track_view_length(track_view_t *v, u8 top_row);
+

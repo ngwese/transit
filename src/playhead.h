@@ -8,12 +8,15 @@
 
 // libavr32
 #include <types.h>
+#include <compiler.h>
 
 typedef struct {
   u8 position;
   u8 first;
   u8 max;
   s8 delta;
+  s8 nudge;
+  bool should_reset;
 } playhead_t;
 
 void playhead_init(playhead_t *p);

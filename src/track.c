@@ -9,6 +9,7 @@
 
 // libavr32
 #include "monome.h"
+#include "util.h"
 
 // this
 #include "mode_common.h"
@@ -77,7 +78,7 @@ void track_view_init(track_view_t *v, track_t *t, playhead_t *p) {
   p->max = t->length;
 }
 
-void track_view_render(track_view_t *v, u8 top_row, bool show_playhead) {
+void track_view_steps(track_view_t *v, u8 top_row, bool show_playhead) {
   track_t *t = v->track;
   u8 view_start = v->page * PAGE_SIZE;
   u8 view_max = min(t->length - view_start, PAGE_SIZE);
@@ -107,4 +108,45 @@ void track_view_render(track_view_t *v, u8 top_row, bool show_playhead) {
       monomeFrameDirty++;
     }
   }
+}
+
+static u8 uround_up(u8 n, u8 multiple)
+{
+    if (multiple == 0) return n;
+
+    u8 r = n % multiple;
+    if (r == 0) return n;
+
+    return n + multiple - r;
+}
+
+
+void track_view_length(track_view_t *v, u8 top_row) {
+  track_t *t = v->track;
+  u8 top_offset = monome_xy_idx(0, top_row);
+
+  // draw pages
+  // u8 num_pages = t->length / PAGE_SIZE;
+  // if (num_pages == 0) {
+  //   num_pages = 1;
+  // }
+  u8 upper = uround_up(t->length, PAGE_SIZE);
+  u8 num_pages = upper / PAGE_SIZE;
+
+  for (u8 i = 0; i < num_pages; i++) {
+    monomeLedBuffer[top_offset + i] = L3;
+  }
+
+  // draw steps
+  u8 steps = t->length % PAGE_SIZE;
+  if (steps == 0) {
+    steps = PAGE_SIZE;
+  }
+
+  u8 start = monome_xy_idx(0, top_row + 1);
+  for(u8 s = 0; s < steps; s++) {
+    monomeLedBuffer[start + s] = L2;
+  }
+
+  monomeFrameDirty++;
 }
