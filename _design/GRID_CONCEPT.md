@@ -56,3 +56,10 @@
 - [ ] reset by ii
 - [ ] end of cycle tr
 - [ ] quantized switch of pattern
+
+
+live meta patterns; row/step select + page 2 (hold) momentarily switches to the
+pattern view. pressing pattern slots in succession fills in the "live" meta
+sequence which starts playing at the of the currently playing meta pattern on
+that track. when the live meta sequence it automatically returns to the first
+meta sequence (which defaults to a single step the first pattern slot).
