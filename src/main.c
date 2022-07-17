@@ -82,7 +82,10 @@ void flash_read(void);
 void state_write(void);
 void state_read(void);
 
-const u8 outs[8] = {B00, B01, B02, B03, B04, B05, B06, B07};
+static const u8 normal_outs[8] = {B00, B01, B02, B03, B04, B05, B06, B07};
+static const u8 grid_outs[8] = {B00, B02, B04, B06, B01, B03, B05, B07};
+
+static const u8 *outs;
 
 ////////////////////////////////////////////////////////////////////////////////
 // globals
@@ -187,18 +190,22 @@ void set_mode(transit_mode_t m) {
   // enter
   switch (m) {
   case mGrid:
+    outs = grid_outs;
     enter_mode_grid();
     active_mode = m;
     break;
   case mArc:
+    outs = normal_outs;
     enter_mode_arc();
     active_mode = m;
     break;
   case mMidi:
+    outs = normal_outs;
     enter_mode_midi();
     active_mode = m;
     break;
   case mDiv:
+    outs = normal_outs;
     enter_mode_div();
     active_mode = m;
     break;
