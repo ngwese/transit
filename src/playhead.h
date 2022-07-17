@@ -7,8 +7,8 @@
 #pragma once
 
 // libavr32
-#include <types.h>
 #include <compiler.h>
+#include <types.h>
 
 typedef struct {
   u8 position;

@@ -141,17 +141,14 @@ void keytimer_grid(void) {
 
 void default_grid(void) {
   print_dbg("\r\ndefault_grid()");
-  // flashc_memset32((void *)&(f.grid_state.clock_period), 100, 4, true);
   flashc_memset16((void *)&(f.grid_state.clock_rate), 640, 2, true);
+  flashc_memset16((void *)&(f.grid_state.preset), 0, 1, true);
 }
 
 void write_grid(void) {
   print_dbg("\r\nwrite_grid()");
-  // flashc_memset32((void *)&(f.grid_state.clock_period),
-  // grid_state.clock_period,
-  //                 4, true);
-  flashc_memset16((void *)&(f.grid_state.clock_rate), grid_state.clock_rate, 2,
-                  true);
+  flashc_memset16((void *)&(f.grid_state.clock_rate), grid_state.clock_rate, 2, true);
+  flashc_memset16((void *)&(f.grid_state.preset), grid_state.preset, 1, true);
 }
 
 void read_grid(void) {
@@ -366,8 +363,7 @@ static void render_waves(void) {
       if (t.enabled && t.value) {
         // for now straight in time trigger
         waves[wn].edges[0] = MID_PHASE;
-        waves[wn].edges[1] =
-            MID_PHASE + 16; // FIXME: this is assuming a specific PPQ
+        waves[wn].edges[1] = MID_PHASE + 16; // FIXME: this is assuming a specific PPQ
       }
       wn++;
     }

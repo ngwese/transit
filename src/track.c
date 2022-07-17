@@ -110,16 +110,16 @@ void track_view_steps(track_view_t *v, u8 top_row, bool show_playhead) {
   }
 }
 
-static u8 uround_up(u8 n, u8 multiple)
-{
-    if (multiple == 0) return n;
+static u8 uround_up(u8 n, u8 multiple) {
+  if (multiple == 0)
+    return n;
 
-    u8 r = n % multiple;
-    if (r == 0) return n;
+  u8 r = n % multiple;
+  if (r == 0)
+    return n;
 
-    return n + multiple - r;
+  return n + multiple - r;
 }
-
 
 void track_view_length(track_view_t *v, u8 top_row) {
   track_t *t = v->track;
@@ -144,7 +144,7 @@ void track_view_length(track_view_t *v, u8 top_row) {
   }
 
   u8 start = monome_xy_idx(0, top_row + 1);
-  for(u8 s = 0; s < steps; s++) {
+  for (u8 s = 0; s < steps; s++) {
     monomeLedBuffer[start + s] = L2;
   }
 

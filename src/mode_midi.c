@@ -90,8 +90,7 @@ void default_midi(void) {
 }
 
 void write_midi(void) {
-  flashc_memset32((void *)&(f.midi_state.clock_period), midi_state.clock_period,
-                  4, true);
+  flashc_memset32((void *)&(f.midi_state.clock_period), midi_state.clock_period, 4, true);
 }
 
 void read_midi(void) {

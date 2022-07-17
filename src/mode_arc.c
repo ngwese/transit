@@ -107,8 +107,7 @@ static void process_outputs(u8 now, bool reset);
 //----- globals
 
 // https://en.wikipedia.org/wiki/Triangular_number
-const uint8_t delta_acc[16] = {0,  1,  3,  6,  10, 15, 21,  28,
-                               36, 45, 55, 66, 78, 91, 105, 120};
+const uint8_t delta_acc[16] = {0, 1, 3, 6, 10, 15, 21, 28, 36, 45, 55, 66, 78, 91, 105, 120};
 
 static bool fresh = false;
 static s32 enc_acc[4];
@@ -562,8 +561,7 @@ void default_arc(void) {
 }
 
 void write_arc(void) {
-  flashc_memset16((void *)&(f.arc_state.clock_rate), arc_state.clock_rate, 2,
-                  true);
+  flashc_memset16((void *)&(f.arc_state.clock_rate), arc_state.clock_rate, 2, true);
 }
 
 void read_arc(void) {

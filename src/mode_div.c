@@ -128,8 +128,7 @@ void default_div(void) {
 }
 
 void write_div(void) {
-  flashc_memset32((void *)&(f.div_state.clock_period), div_state.clock_period,
-                  4, true);
+  flashc_memset32((void *)&(f.div_state.clock_period), div_state.clock_period, 4, true);
 }
 
 void read_div(void) {
