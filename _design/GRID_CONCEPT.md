@@ -31,6 +31,18 @@
 - [ ] use meter to perturb rate less around quarter notes? (stronger beat)
 - [ ] use voice; lower voice get perturbed less?
 
+- [ ] ii leader, send actively held step to tt for use in data entry (in tracker with encoder)
+- [ ] ii follower
+  - [ ] change pattern
+  - [ ] cue pattern
+  - [ ] reset
+  - [ ] mute voice
+
+- [ ] 4th trigger out (per track)
+  - [ ] end of measure
+  - [ ] end of pattern
+  - [ ] fill state
+
 ## edit interaction
 
 - [ ] if one track is shorter than the other show a ghosted version of the
