@@ -8,7 +8,11 @@
 
 - [ ] define a euclidean track
 - [ ] layer explicit steps on top of euclidean steps
-- [ ] condition triggers (percentage chance, every N, fill, not fill)
+- [ ] conditional triggers
+  - [ ] percentage chance
+  - [ ] every N
+  - [ ] fill, not fill)
+  - [ ] ** will transition to new pattern (trigs play or not play)
 - [x] variable length track
 - [ ] tempo set by grid specification (i.e. 120 bpm)
 - [ ] tempo set by ii
