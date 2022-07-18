@@ -23,13 +23,19 @@
 #include "playhead.h"
 #include "track.h"
 
+#define GRID_WAVE_EDGES 8
+#define GRID_NUM_OUTPUTS 8
+
+#define TRACK1_DEFAULT_PATTERN 0
+#define TRACK2_DEFAULT_PATTERN 12
+
 //------------------------------
 //------ types
 
 typedef enum { uiEdit, uiLength, uiPattern } ui_mode_t;
 
 typedef struct {
-  u8 edges[8];
+  u8 edges[GRID_WAVE_EDGES];
   u8 cursor;
 } waveform_t;
 
@@ -50,6 +56,10 @@ static void handler_GridRefresh(s32 data);
 static void render_grid(void);
 static void render_nav(void);
 static void render_nudge(u8 x, u8 y);
+static void render_cue_mode(u8 x, u8 y, cue_mode_t mode);
+static void render_pattern_bar(u8 x, u8 y);
+static void render_meta_bar(u8 x, u8 y);
+static void render_meta_buffer_bar(u8 x, u8 y);
 
 static void process_phasor(u8 now, bool reset);
 static void build_waves(void);
@@ -67,19 +77,19 @@ static void do_row_selection(u8 state);
 //-----------------------------
 //----- globals
 
+// runtime state
 static ui_mode_t ui_mode;
-static track_t track[2];
-static track_view_t view[2];
-static playhead_t playhead[2];
-static u16 clock_hz;
+static track_view_t view[GRID_NUM_TRACKS];
+static playhead_t playhead[GRID_NUM_TRACKS];
 
 static u8 step_selection = 0;
 static u8 row_selection = 0;
-
-static waveform_t waves[8];
+static u16 clock_hz;
+static waveform_t waves[GRID_NUM_OUTPUTS];
 
 // copy of nvram state for editing
-static grid_state_t grid_state;
+static global_t g;
+static preset_t p;
 
 void enter_mode_grid(void) {
   print_dbg("\r\n> mode grid");
@@ -103,7 +113,7 @@ void enter_mode_grid(void) {
     app_event_handlers[kEventFrontLong] = &handler_GridFrontLong;
   }
 
-  clock_hz = calc_clock_frequency(grid_state.clock_rate);
+  clock_hz = calc_clock_frequency(g.clock_rate);
   print_dbg("\r\n clock_hz = ");
   print_dbg_ulong(clock_hz);
   phasor_set_callback(&process_phasor);
@@ -112,6 +122,9 @@ void enter_mode_grid(void) {
 }
 
 void leave_mode_grid(void) {
+  print_dbg("\r\n leave mode grid");
+  phasor_stop();
+  phasor_set_callback(NULL);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -145,35 +158,62 @@ void keytimer_grid(void) {
 
 void default_grid(void) {
   print_dbg("\r\ndefault_grid()");
-  flashc_memset16((void *)&(f.grid_state.clock_rate), 640, 2, true);
-  flashc_memset16((void *)&(f.grid_state.preset), 0, 1, true);
+  print_dbg("\r\n defaulting globals");
+  flashc_memset16((void *)&(f.grid_state.g.clock_rate), 640, 2, true);
+  flashc_memset8((void *)&(f.grid_state.g.preset), 0, 1, true);
+
+  // use the working preset to create the default preset
+  print_dbg("\r\n defaulting presets");
+  track_init(&p.track[0], TRACK1_DEFAULT_PATTERN);
+  track_init(&p.track[1], TRACK2_DEFAULT_PATTERN);
+  for (u8 i = 0; i < GRID_NUM_PATTERNS; i++) {
+    pattern_init(&p.pattern[i]);
+  }
+  for (u8 i = 0; i < GRID_NUM_META; i++) {
+    meta_init(&p.meta[i]);
+  }
+  p.clock_rate = 640;
+
+  // copy the default preset to each slot
+  for (u8 i = 0; i < GRID_NUM_PRESETS; i++) {
+    flashc_memcpy((void *)&f.grid_state.p[i], &p, sizeof(p), true);
+    print_dbg(" ...");
+    print_dbg_ulong(i);
+  }
 }
 
 void write_grid(void) {
   print_dbg("\r\nwrite_grid()");
-  flashc_memset16((void *)&(f.grid_state.clock_rate), grid_state.clock_rate, 2, true);
-  flashc_memset16((void *)&(f.grid_state.preset), grid_state.preset, 1, true);
+  flashc_memset16((void *)&(f.grid_state.g.clock_rate), g.clock_rate, 2, true);
+  flashc_memset8((void *)&(f.grid_state.g.preset), g.preset, 1, true);
+  flashc_memcpy((void *)&f.grid_state.p[g.preset], &p, sizeof(p), true);
 }
 
 void read_grid(void) {
+  // called when entering mode
   print_dbg("\r\nread_grid()");
-  grid_state = f.grid_state;
+  g = f.grid_state.g;           // restore saved globals
+  p = f.grid_state.p[g.preset]; // restore selected preset
 }
 
 void init_grid(void) {
-  print_dbg("\r\ninint_grid()");
-  track_init(&track[0]);
-  track_init(&track[1]);
-  playhead_init(&playhead[0]);
-  playhead_init(&playhead[1]);
-  track_view_init(&view[0], &track[0], &playhead[0]);
-  track_view_init(&view[1], &track[1], &playhead[1]);
+  // called on startup after flash has been initialized
+  print_dbg("\r\ninit_grid()");
+  g = f.grid_state.g;           // restore saved globals
+  p = f.grid_state.p[g.preset]; // restore selected preset
 }
 
 void resume_grid(void) {
+  // called when entering mode after read_grid
   print_dbg("\r\nresume_grid()");
   // clear all because waveform transition logic is based tr state
   clr_tr_all();
+
+  playhead_init(&playhead[0]);
+  playhead_init(&playhead[1]);
+  track_view_init(&view[0], &p.track[0], &playhead[0], p.pattern);
+  track_view_init(&view[1], &p.track[1], &playhead[1], p.pattern);
+
   monomeFrameDirty++;
 }
 
@@ -359,7 +399,16 @@ static void render_grid(void) {
     break;
 
   case uiPattern:
-    // TODO: pattern view
+    render_cue_mode(0, 0, cueNone);
+    render_pattern_bar(5, 0);
+    render_meta_bar(5, 1);
+    render_meta_buffer_bar(5, 2);
+
+    render_cue_mode(0, 3, cueNone);
+    render_pattern_bar(5, 3);
+    render_meta_bar(5, 4);
+    render_meta_buffer_bar(5, 5);
+
     render_nav();
 
   default:
@@ -382,6 +431,22 @@ static void render_nudge(u8 x, u8 y) {
   monomeLedBuffer[offset + 2] = L1;
 }
 
+static void render_cue_mode(u8 x, u8 y, cue_mode_t mode) {
+  u8 offset = monome_xy_idx(x, y);
+  monomeLedBuffer[offset] = mode == cueNone ? L2 : L1;
+  monomeLedBuffer[offset + 1] = mode == cueNone ? L3 : L2;
+  monomeLedBuffer[offset + 2] = mode == cueNone ? L4 : L3;
+}
+
+static void render_pattern_bar(u8 x, u8 y) {
+}
+
+static void render_meta_bar(u8 x, u8 y) {
+}
+
+static void render_meta_buffer_bar(u8 x, u8 y) {
+}
+
 static void build_waves(void) {
   memset(&waves, 0, sizeof(waves));
 
@@ -389,7 +454,8 @@ static void build_waves(void) {
   for (u8 tn = 0; tn < 2; tn++) {
     u8 sn = playhead_position(&playhead[tn]);
     for (u8 v = 0; v < VOICE_COUNT; v++) {
-      trig_t t = track[tn].step[sn].voice[v];
+      pattern_t *pat = track_view_pattern(&view[tn]);
+      trig_t t = pat->step[sn].voice[v];
       if (t.enabled && t.value) {
         // for now straight in time trigger
         waves[wn].edges[0] = MID_PHASE;
@@ -444,7 +510,8 @@ inline static void do_row_selection(u8 state) {
 static void do_step_key(track_view_t *v, u8 x, u8 y, u8 z) {
   if (z == 1) {
     u8 n = v->page * PAGE_SIZE + x;
-    step_t *s = &v->track->step[n];
+    pattern_t *pat = track_view_pattern(v);
+    step_t *s = &pat->step[n];
 
     if (step_selection) {
       step_toggle_select(s, y);
@@ -455,12 +522,14 @@ static void do_step_key(track_view_t *v, u8 x, u8 y, u8 z) {
 }
 
 static void do_len_key(track_view_t *v, u8 x, u8 y, u8 z) {
-  u8 curr_length = v->track->length;
+  pattern_t *pat = track_view_pattern(v);
+  u8 curr_length = pat->length;
+
   if (z == 1) {
     if (y == 0) {
       // pages
       if (x < 4) {
-        v->playhead->max = v->track->length = (x + 1) * PAGE_SIZE;
+        v->playhead->max = pat->length = (x + 1) * PAGE_SIZE;
         // print_dbg("\r\nlen: ");
         // print_dbg_ulong(v->track->length);
       }
@@ -476,10 +545,10 @@ static void do_len_key(track_view_t *v, u8 x, u8 y, u8 z) {
       // print_dbg(", base: ");
       // print_dbg_ulong(base);
       if (x < 15) {
-        v->playhead->max = v->track->length = min(base + x + 1, TRACK_STEP_MAX);
+        v->playhead->max = pat->length = min(base + x + 1, PATTERN_STEP_MAX);
       }
       print_dbg("\r\n len: ");
-      print_dbg_ulong(v->track->length);
+      print_dbg_ulong(pat->length);
     }
   }
 }

@@ -68,6 +68,7 @@ CSRCS = \
        ../src/mode_div.c                                  \
        ../src/mode_common.c                               \
        ../src/gitversion.c                                \
+       ../src/meta.c                                      \
        ../src/playhead.c                                  \
        ../src/track.c                                     \
        ../libavr32/src/adc.c                              \

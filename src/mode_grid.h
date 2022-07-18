@@ -6,32 +6,29 @@
 
 #pragma once
 
+#include "meta.h"
 #include "track.h"
 
+#define GRID_NUM_TRACKS 2
 #define GRID_NUM_PRESETS 2
-#define GRID_NUM_PATTERNS 12
-#define GRID_LEN_META 12
-#define GRID_NUM_META 12
-
-typedef struct {
-  u8 pattern;
-} meta_step_t;
-
-typedef struct {
-  u8 length;
-  meta_step_t steps[GRID_LEN_META];
-} meta_pattern_t;
+#define GRID_NUM_PATTERNS 24
+#define GRID_NUM_META 24
 
 typedef struct {
   u16 clock_rate;
-  track_t tracks[2][GRID_NUM_PATTERNS];
-  meta_pattern_t meta[2][GRID_NUM_META];
+  track_t track[GRID_NUM_TRACKS];
+  pattern_t pattern[GRID_NUM_PATTERNS];
+  meta_pattern_t meta[GRID_NUM_META];
 } preset_t;
 
-// grid mode values saved to nvram
 typedef struct {
   u16 clock_rate; // global clock rate
   u8 preset;      // which preset is selected
+} global_t;
+
+// grid mode values saved to nvram
+typedef struct {
+  global_t g;
   preset_t p[GRID_NUM_PRESETS];
 } grid_state_t;
 

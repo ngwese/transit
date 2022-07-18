@@ -1,0 +1,3 @@
+copy preset to p in init_grid
+then change other track,playhead,view bits to reference
+p

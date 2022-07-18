@@ -15,8 +15,10 @@
 
 #define VOICE_COUNT 3
 
-#define TRACK_STEP_MAX 64
-#define TRACK_DEFAULT_LENGTH 16
+#define PATTERN_STEP_MAX 64
+#define PATTERN_DEFAULT_LENGTH 16
+
+typedef enum { cueNone = 0, cuePattern, cueMeta } cue_mode_t;
 
 //
 // step
@@ -43,15 +45,28 @@ u8 step_get(step_t *step, u8 voice);
 void step_load(step_t *step, u8 out[VOICE_COUNT]);
 
 //
+// pattern
+//
+typedef struct {
+  step_t step[PATTERN_STEP_MAX];
+  u8 length;
+  u8 occupied : 1;
+  u8 reserved : 7;
+} pattern_t;
+
+void pattern_init(pattern_t *p);
+void pattern_copy(pattern_t *dst, pattern_t *src);
+
+//
 // track
 //
 
 typedef struct {
-  step_t step[TRACK_STEP_MAX];
-  u8 length;
+  cue_mode_t cue;
+  u8 pattern;
 } track_t;
 
-void track_init(track_t *t);
+void track_init(track_t *t, u8 initial_pattern);
 void track_copy(track_t *dst, track_t *src);
 
 //
@@ -64,8 +79,10 @@ typedef struct {
   u8 page;
   track_t *track;
   playhead_t *playhead;
+  pattern_t *patterns;
 } track_view_t;
 
-void track_view_init(track_view_t *v, track_t *t, playhead_t *p);
+void track_view_init(track_view_t *v, track_t *t, playhead_t *p, pattern_t *patterns);
 void track_view_steps(track_view_t *v, u8 top_row, bool show_playhead);
 void track_view_length(track_view_t *v, u8 top_row);
+pattern_t *track_view_pattern(track_view_t *v);

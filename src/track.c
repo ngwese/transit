@@ -53,12 +53,26 @@ void step_load(step_t *step, u8 out[VOICE_COUNT]) {
 }
 
 //
+// pattern
+//
+
+void pattern_init(pattern_t *p) {
+  memset(p, 0, sizeof(track_t));
+  p->length = PATTERN_DEFAULT_LENGTH;
+}
+
+void pattern_copy(pattern_t *dst, pattern_t *src) {
+  memcpy(dst, src, sizeof(pattern_t));
+}
+
+//
 // track
 //
 
-void track_init(track_t *t) {
+void track_init(track_t *t, u8 initial_pattern) {
   memset(t, 0, sizeof(track_t));
-  t->length = TRACK_DEFAULT_LENGTH;
+  t->cue = cueNone;
+  t->pattern = initial_pattern;
 }
 
 void track_copy(track_t *dst, track_t *src) {
@@ -69,25 +83,26 @@ void track_copy(track_t *dst, track_t *src) {
 // track view
 //
 
-void track_view_init(track_view_t *v, track_t *t, playhead_t *p) {
+void track_view_init(track_view_t *v, track_t *t, playhead_t *p, pattern_t *patterns) {
   v->page = 0;
   v->track = t;
   v->playhead = p;
+  v->patterns = patterns;
 
   // FIXME: hack
-  p->max = t->length;
+  p->max = patterns[t->pattern].length;
 }
 
 void track_view_steps(track_view_t *v, u8 top_row, bool show_playhead) {
-  track_t *t = v->track;
+  pattern_t *pat = track_view_pattern(v);
   u8 view_start = v->page * PAGE_SIZE;
-  u8 view_max = min(t->length - view_start, PAGE_SIZE);
+  u8 view_max = min(pat->length - view_start, PAGE_SIZE);
   u8 top_offset = top_row * GRID_WIDTH;
 
   // steps
   if (view_max > 0) {
     for (u8 i = 0; i < view_max; i++) {
-      step_t *s = &(t->step[view_start + i]);
+      step_t *s = &(pat->step[view_start + i]);
       for (u8 v = 0; v < VOICE_COUNT; v++) {
         if (s->voice[v].enabled && s->voice[v].value) {
           monomeLedBuffer[top_offset + (v * GRID_WIDTH) + i] = L3;
@@ -122,15 +137,11 @@ static u8 uround_up(u8 n, u8 multiple) {
 }
 
 void track_view_length(track_view_t *v, u8 top_row) {
-  track_t *t = v->track;
+  pattern_t *pat = track_view_pattern(v);
   u8 top_offset = monome_xy_idx(0, top_row);
 
   // draw pages
-  // u8 num_pages = t->length / PAGE_SIZE;
-  // if (num_pages == 0) {
-  //   num_pages = 1;
-  // }
-  u8 upper = uround_up(t->length, PAGE_SIZE);
+  u8 upper = uround_up(pat->length, PAGE_SIZE);
   u8 num_pages = upper / PAGE_SIZE;
 
   for (u8 i = 0; i < num_pages; i++) {
@@ -138,7 +149,7 @@ void track_view_length(track_view_t *v, u8 top_row) {
   }
 
   // draw steps
-  u8 steps = t->length % PAGE_SIZE;
+  u8 steps = pat->length % PAGE_SIZE;
   if (steps == 0) {
     steps = PAGE_SIZE;
   }
@@ -149,4 +160,8 @@ void track_view_length(track_view_t *v, u8 top_row) {
   }
 
   monomeFrameDirty++;
+}
+
+pattern_t *track_view_pattern(track_view_t *v) {
+  return &(v->patterns[v->track->pattern]);
 }
