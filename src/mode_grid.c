@@ -55,10 +55,11 @@ static void handler_GridRefresh(s32 data);
 
 static void render_grid(void);
 static void render_nav(void);
+static void render_track_select(u8 x, u8 y);
 static void render_nudge(u8 x, u8 y);
 static void render_cue_mode(u8 x, u8 y, cue_mode_t mode);
-static void render_pattern_bar(u8 x, u8 y);
-static void render_meta_bar(u8 x, u8 y);
+static void render_pattern_area(u8 x, u8 y);
+static void render_meta_area(u8 x, u8 y);
 static void render_meta_buffer_bar(u8 x, u8 y);
 
 static void process_phasor(u8 now, bool reset);
@@ -84,6 +85,8 @@ static playhead_t playhead[GRID_NUM_TRACKS];
 
 static u8 step_selection = 0;
 static u8 row_selection = 0;
+static u8 track_selection[GRID_NUM_TRACKS] = {0, 0};
+
 static u16 clock_hz;
 static waveform_t waves[GRID_NUM_OUTPUTS];
 
@@ -271,7 +274,41 @@ static void handle_key_upper_len(u8 x, u8 y, u8 z) {
 }
 
 static void handle_key_upper_pat(u8 x, u8 y, u8 z) {
-  print_dbg("\r\n pattern key");
+  if (z == 0) return;
+
+  if (x <= 3) {
+    // cue area
+    print_dbg("\r\n cue area");
+  } else if (x <= 7) {
+    // pattern area
+    print_dbg("\r\n pattern: ");
+    u8 p = (y * 4) + (x - 4);
+    print_dbg_ulong(p);
+    // TODO: break this out into a do_track_pattern_select
+    // FIXME: this also needs to adjust the playhead
+    if (track_selection[0]) {
+      view[0].track->pattern = p;
+      print_dbg(" [t1]");
+    }
+    if (track_selection[1]) {
+      view[1].track->pattern = p;
+      print_dbg(" [t2]");
+    }
+  } else if (x == 9 || x == 10) {
+    // meta area
+    print_dbg("\r\n meta: ");
+    u8 m = (y * 2) + (x - 9);
+    print_dbg_ulong(m);
+  } else if (x == 12) {
+    // meta live area
+    if (y == 0) {
+      print_dbg("\r\n meta: live 1");
+    } else if (y == 3) {
+      print_dbg("\r\n meta: live 2");
+    }
+  } else {
+    print_dbg("\r\n empty pattern view key");
+  }
 }
 
 static bool handle_key_control(u8 x, u8 y, u8 z) {
@@ -309,26 +346,56 @@ static bool handle_key_control(u8 x, u8 y, u8 z) {
     }
   }
 
-  if (z == 1) {
-    if (x == 1) {
-      // left half of page select
-      if (y == 6) {
+  // page selection (via navigation quad)
+  if (x == 1) {
+    // left half of page select
+    if (y == 6) {
+      if (z == 1) {
         view[0].page = view[1].page = 0;
         return true;
-      } else if (y == 7) {
+      }
+    } else if (y == 7) {
+      if (z == 1) {
         view[0].page = view[1].page = 2;
         return true;
       }
-    } else if (x == 2) {
-      // right half of page select
-      if (y == 6) {
+    }
+  } else if (x == 2) {
+    // right half of page select
+    if (y == 6) {
+      if (z == 1) {
         view[0].page = view[1].page = 1;
         return true;
-      } else if (y == 7) {
+      }
+    } else if (y == 7) {
+      if (z == 1) {
         view[0].page = view[1].page = 3;
         return true;
       }
-    } else if (x == 3) {
+    }
+  }
+
+  // track select (only in pattern mode)
+  if (ui_mode == uiPattern) {
+    if (x == 4) {
+      if (y == 6) {
+        track_selection[0] = z;
+        print_dbg("\r\n track_selection[0] = ");
+        print_dbg_ulong(z);
+        return true;
+      } else if (y == 7) {
+        track_selection[1] = z;
+        print_dbg("\r\n track_selection[1] = ");
+        print_dbg_ulong(z);
+        return true;
+      }
+    }
+  }
+
+  // playhead (only in edit mode)
+  if (ui_mode == uiEdit && z == 1) {
+    // TODO: refactor to split up ui_modes
+    if (x == 3) {
       // playhead nudge back
       if (y == 6) {
         view[0].playhead->nudge = -1;
@@ -400,16 +467,13 @@ static void render_grid(void) {
 
   case uiPattern:
     render_cue_mode(0, 0, cueNone);
-    render_pattern_bar(5, 0);
-    render_meta_bar(5, 1);
-    render_meta_buffer_bar(5, 2);
-
     render_cue_mode(0, 3, cueNone);
-    render_pattern_bar(5, 3);
-    render_meta_bar(5, 4);
-    render_meta_buffer_bar(5, 5);
+
+    render_pattern_area(4, 0);
+    render_meta_area(9, 0);
 
     render_nav();
+    render_track_select(4, 6);
 
   default:
     break;
@@ -431,17 +495,68 @@ static void render_nudge(u8 x, u8 y) {
   monomeLedBuffer[offset + 2] = L1;
 }
 
+static void render_track_select(u8 x, u8 y) {
+  monomeLedBuffer[monome_xy_idx(x, y)] = L1;
+  monomeLedBuffer[monome_xy_idx(x, y + 1)] = L1;
+}
+
 static void render_cue_mode(u8 x, u8 y, cue_mode_t mode) {
   u8 offset = monome_xy_idx(x, y);
-  monomeLedBuffer[offset] = mode == cueNone ? L2 : L1;
-  monomeLedBuffer[offset + 1] = mode == cueNone ? L3 : L2;
-  monomeLedBuffer[offset + 2] = mode == cueNone ? L4 : L3;
+  // monomeLedBuffer[offset] = mode == cueNone ? L2 : L1;
+  // monomeLedBuffer[offset + 1] = mode == cueNone ? L3 : L2;
+  // monomeLedBuffer[offset + 2] = mode == cueNone ? L4 : L3;
+  monomeLedBuffer[offset] = L1;
+  monomeLedBuffer[offset + 1] = L2;
+  monomeLedBuffer[offset + 2] = L3;
+  monomeLedBuffer[monome_xy_idx(x + mode, y + 1)] = L2;
 }
 
-static void render_pattern_bar(u8 x, u8 y) {
+static void render_pattern_area(u8 x, u8 y) {
+  u8 top1 = monome_xy_idx(x, y);
+  u8 bottom1 = monome_xy_idx(x, y + 2);
+  u8 top2 = monome_xy_idx(x, y + 3);
+  u8 bottom2 = monome_xy_idx(x, y + 5);
+  for (u8 i = 0; i < 4; i++) {
+    monomeLedBuffer[top1 + i] = L1;
+    monomeLedBuffer[bottom1 + i] = L1;
+    monomeLedBuffer[top2 + i] = L1;
+    monomeLedBuffer[bottom2 + i] = L1;
+  }
+
+  // show which track is selected, consider a way to solo a track to
+  // disambiguate
+  bool active_selection = track_selection[0] || track_selection[1];
+  for (u8 i = 0; i < GRID_NUM_TRACKS; i++) {
+    u8 p = view[i].track->pattern;
+    u8 py = p >> 2;
+    u8 px = p - (py * 4);
+    u8 idx = monome_xy_idx(px + x, py + y);
+    u8 level = L3;
+    if (active_selection && track_selection[i] == 0) {
+      // if a track selection key is held, dim the _non_ selected pattern marker
+      level = L2;
+    }
+    monomeLedBuffer[idx] = level;
+  }
 }
 
-static void render_meta_bar(u8 x, u8 y) {
+static void render_meta_area(u8 x, u8 y) {
+  u8 top1 = monome_xy_idx(x, y);
+  u8 bottom1 = monome_xy_idx(x, y + 2);
+  u8 top2 = monome_xy_idx(x, y + 3);
+  u8 bottom2 = monome_xy_idx(x, y + 5);
+  for (u8 i = 0; i < 2; i++) {
+    monomeLedBuffer[top1 + i] = L1;
+    monomeLedBuffer[bottom1 + i] = L1;
+    monomeLedBuffer[top2 + i] = L1;
+    monomeLedBuffer[bottom2 + i] = L1;
+  }
+
+  // TODO: show meta selection
+
+  // live buffer button/latch
+  monomeLedBuffer[monome_xy_idx(x + 3, y)] = L1;
+  monomeLedBuffer[monome_xy_idx(x + 3, y + 3)] = L1;
 }
 
 static void render_meta_buffer_bar(u8 x, u8 y) {

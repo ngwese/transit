@@ -12,7 +12,7 @@
 #define GRID_NUM_TRACKS 2
 #define GRID_NUM_PRESETS 2
 #define GRID_NUM_PATTERNS 24
-#define GRID_NUM_META 24
+#define GRID_NUM_META 12
 
 typedef struct {
   u16 clock_rate;
