@@ -7,6 +7,9 @@
 #include "mode_common.h"
 
 u16 calc_clock_frequency(u16 rate) {
-  // assumes rate [0-1280]
-  return rate + 8; // 8hz - 1288khz
+  // assumes rate [8-1280]
+  if (rate < 8) {
+    rate = 8;
+  }
+  return rate; // 8hz - 1288hz
 }

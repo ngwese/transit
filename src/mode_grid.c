@@ -10,6 +10,7 @@
 #include "string.h"
 
 // libavr32
+#include "adc.h"
 #include "events.h"
 #include "flashc.h"
 #include "i2c.h"
@@ -29,6 +30,8 @@
 
 #define TRACK1_DEFAULT_PATTERN 0
 #define TRACK2_DEFAULT_PATTERN 12
+
+#define CLOCK_HZ_MAX 2560
 
 //------------------------------
 //------ types
@@ -68,6 +71,7 @@ static void handler_GridFrontShort(s32 data);
 static void handler_GridFrontLong(s32 data);
 static void handler_GridTr(s32 data);
 static void handler_GridTrNormal(s32 data);
+static void handler_GridPollADC(s32 data);
 
 static void handler_GridKey(s32 data);
 static void handler_GridRefresh(s32 data);
@@ -116,6 +120,8 @@ static waveform_t waves[GRID_NUM_OUTPUTS];
 static edge_t carry[GRID_NUM_OUTPUTS]; // offset into next waveform of the trailing edge of the
                                        // previous waveform
 
+static bool front_long = false;
+
 // copy of nvram state for editing
 static global_t g;
 static preset_t p;
@@ -126,6 +132,7 @@ void enter_mode_grid(void) {
 
   app_event_handlers[kEventTr] = &handler_GridTr;
   app_event_handlers[kEventTrNormal] = &handler_GridTrNormal;
+  app_event_handlers[kEventPollADC] = &handler_GridPollADC;
   app_event_handlers[kEventMonomeGridKey] = &handler_GridKey;
   app_event_handlers[kEventMonomeRefresh] = &handler_GridRefresh;
 
@@ -162,11 +169,15 @@ void leave_mode_grid(void) {
 void handler_GridFrontShort(s32 data) {
   print_dbg("\r\n grid: front short ");
   print_dbg_ulong(data);
+  if (front_long) {
+    front_long = false;
+  }
 }
 
 void handler_GridFrontLong(s32 data) {
   print_dbg("\r\n grid: front long ");
   print_dbg_ulong(data);
+  front_long = true;
 }
 
 void handler_GridTr(s32 data) {
@@ -177,6 +188,39 @@ void handler_GridTr(s32 data) {
 void handler_GridTrNormal(s32 data) {
   print_dbg("\r\n grid: tr normal ");
   print_dbg_ulong(data);
+}
+
+void handler_GridPollADC(s32 data) {
+  static u16 last_poll = 10000;
+  u16 i, clock_time;
+
+  // the ADC seems very noisy, avoid constant jitter by only adjusting clock
+  // with the front button is held
+  if (front_long) {
+    adc_convert(&adc);
+
+    i = adc[0]; // [0-4096]
+    i = i >> 3; // [0-512]
+
+    if (i != last_poll) {
+      // 500ms - 12ms
+      // clock_time = 25000 / (i + 25);
+      // print_dbg("\r\nclock (ms): ");
+      // print_dbg_ulong(clock_time);
+      // clock_set(clock_time);
+      print_dbg("\r\n raw = ");
+      print_dbg_ulong(i);
+      print_dbg(" ");
+      print_dbg_ulong(adc[0]);
+      clock_time = CLOCK_HZ_MAX * i / 512;
+      g.clock_rate = clock_hz = calc_clock_frequency(clock_time);
+      print_dbg("\r\n clock_hz = ");
+      print_dbg_ulong(clock_hz);
+      phasor_set_frequency(clock_hz);
+    }
+
+    last_poll = i;
+  }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
