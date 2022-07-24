@@ -21,6 +21,7 @@
 
 void step_set(step_t *step, u8 voice, u8 value) {
   step->voice[voice].value = value;
+  step->voice[voice].enabled = value > 0;
 }
 
 void step_toggle(step_t *step, u8 voice) {

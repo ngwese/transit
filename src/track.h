@@ -28,6 +28,7 @@ typedef struct {
   u8 selected : 1;
   u8 enabled : 1;
   u8 reserved : 6;
+  s8 timing;
   u8 value;
   // TODO: condition
 } trig_t;

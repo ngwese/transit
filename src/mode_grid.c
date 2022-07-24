@@ -15,6 +15,7 @@
 #include "i2c.h"
 #include "monome.h"
 #include "phasor.h"
+#include "util.h"
 
 // this
 #include "main.h"
@@ -34,10 +35,28 @@
 
 typedef enum { uiEdit, uiLength, uiPattern } ui_mode_t;
 
+typedef union {
+  struct {
+    u16 set : 1;
+    u16 level : 1;
+    u16 offset : 14;
+  } f;
+  u16 v;
+} edge_t;
+
 typedef struct {
-  u8 edges[GRID_WAVE_EDGES];
-  u8 cursor;
+  edge_t edges[GRID_WAVE_EDGES]; // offsets in phaser ramp where level transition should occur
+  u8 cursor;                     // index of next edge
 } waveform_t;
+
+typedef struct {
+  u8 track;
+  u8 step;
+  u8 voice;
+  u8 z;
+  u8 hold_count;
+  bool fresh_trig;
+} focused_step_t;
 
 //------------------------------
 //------ prototypes
@@ -56,7 +75,8 @@ static void handler_GridRefresh(s32 data);
 static void render_grid(void);
 static void render_nav(void);
 static void render_track_select(u8 x, u8 y);
-static void render_nudge(u8 x, u8 y);
+static void render_playhead_nudge(u8 x, u8 y);
+static void render_step_nudge(u8 x, u8 y);
 static void render_cue_mode(u8 x, u8 y, cue_mode_t mode);
 static void render_pattern_area(u8 x, u8 y);
 static void render_meta_area(u8 x, u8 y);
@@ -70,10 +90,13 @@ static void handle_key_upper_len(u8 x, u8 y, u8 z);
 static void handle_key_upper_pat(u8 x, u8 y, u8 z);
 static bool handle_key_control(u8 x, u8 y, u8 z);
 
-static void do_step_key(track_view_t *v, u8 x, u8 y, u8 z);
+static void do_step_key(u8 tn, u8 x, u8 y, u8 z);
 static void do_len_key(track_view_t *v, u8 x, u8 y, u8 z);
 static void do_step_selection(u8 state);
 static void do_row_selection(u8 state);
+static void do_focused_step_timing(s8 direction);
+
+inline static u16 edge_pack(u8 level, u16 offset);
 
 //-----------------------------
 //----- globals
@@ -86,9 +109,12 @@ static playhead_t playhead[GRID_NUM_TRACKS];
 static u8 step_selection = 0;
 static u8 row_selection = 0;
 static u8 track_selection[GRID_NUM_TRACKS] = {0, 0};
+static focused_step_t step_focus = {0, 0, 0, 0}; // FIXME: should changing pattern/meta clear this?
 
 static u16 clock_hz;
 static waveform_t waves[GRID_NUM_OUTPUTS];
+static edge_t carry[GRID_NUM_OUTPUTS]; // offset into next waveform of the trailing edge of the
+                                       // previous waveform
 
 // copy of nvram state for editing
 static global_t g;
@@ -157,6 +183,11 @@ void handler_GridTrNormal(s32 data) {
 ///// mode
 
 void keytimer_grid(void) {
+  if (step_focus.hold_count > 0) {
+    step_focus.hold_count--;
+    // print_dbg("\r\n kt = ");
+    // print_dbg_ulong(step_focus.hold_count);
+  }
 }
 
 void default_grid(void) {
@@ -256,10 +287,10 @@ void handler_GridKey(s32 data) {
 static void handle_key_upper_step(u8 x, u8 y, u8 z) {
   if (y <= 2) {
     // first track
-    do_step_key(&view[0], x, y, z);
+    do_step_key(0, x, y, z);
   } else if (y <= 5) {
     // second track
-    do_step_key(&view[1], x, y - 3, z);
+    do_step_key(1, x, y - 3, z);
   }
 }
 
@@ -274,7 +305,8 @@ static void handle_key_upper_len(u8 x, u8 y, u8 z) {
 }
 
 static void handle_key_upper_pat(u8 x, u8 y, u8 z) {
-  if (z == 0) return;
+  if (z == 0)
+    return;
 
   if (x <= 3) {
     // cue area
@@ -380,13 +412,13 @@ static bool handle_key_control(u8 x, u8 y, u8 z) {
     if (x == 4) {
       if (y == 6) {
         track_selection[0] = z;
-        print_dbg("\r\n track_selection[0] = ");
-        print_dbg_ulong(z);
+        // print_dbg("\r\n track_selection[0] = ");
+        // print_dbg_ulong(z);
         return true;
       } else if (y == 7) {
         track_selection[1] = z;
-        print_dbg("\r\n track_selection[1] = ");
-        print_dbg_ulong(z);
+        // print_dbg("\r\n track_selection[1] = ");
+        // print_dbg_ulong(z);
         return true;
       }
     }
@@ -430,6 +462,11 @@ static bool handle_key_control(u8 x, u8 y, u8 z) {
         view[1].playhead->nudge = 1;
         return true;
       }
+    } else if (x >= 11) {
+      // step timing controls
+      if (y == 7) {
+        do_focused_step_timing(x - 13); // -2, -1, 0, 1, 2
+      }
     }
   }
   return false;
@@ -449,14 +486,23 @@ void handler_GridRefresh(s32 data) {
 // app
 //
 
+inline static u16 edge_pack(u8 level, u16 offset) {
+  edge_t e = {.f = {.set = 1, .level = level, .offset = offset}};
+  return e.v;
+}
+
 static void render_grid(void) {
   switch (ui_mode) {
   case uiEdit:
     track_view_steps(&view[0], 0, /* show_playhead */ true);
     track_view_steps(&view[1], 3, /* show_playhead */ true);
     render_nav();
-    render_nudge(3, 6);
-    render_nudge(3, 7);
+    render_playhead_nudge(3, 6);
+    render_playhead_nudge(3, 7);
+
+    if (step_focus.z) {
+      render_step_nudge(11, 7);
+    }
     break;
 
   case uiLength:
@@ -488,11 +534,20 @@ static void render_nav(void) {
   monomeLedBuffer[monome_xy_idx(2, 7)] = 3 == curr_page ? L2 : L1;
 }
 
-static void render_nudge(u8 x, u8 y) {
+static void render_playhead_nudge(u8 x, u8 y) {
   u8 offset = monome_xy_idx(x, y);
   monomeLedBuffer[offset] = L1;
   monomeLedBuffer[offset + 1] = L2;
   monomeLedBuffer[offset + 2] = L1;
+}
+
+static void render_step_nudge(u8 x, u8 y) {
+  u8 offset = monome_xy_idx(x, y);
+  monomeLedBuffer[offset] = L2;     // coarse nudge early
+  monomeLedBuffer[offset + 1] = L1; // fine nudge early
+  monomeLedBuffer[offset + 2] = L3; // reset (center) timing
+  monomeLedBuffer[offset + 3] = L1; // fine nudge late
+  monomeLedBuffer[offset + 4] = L2; // coarse nudge late
 }
 
 static void render_track_select(u8 x, u8 y) {
@@ -568,16 +623,46 @@ static void build_waves(void) {
   u8 wn = 0;
   for (u8 tn = 0; tn < 2; tn++) {
     u8 sn = playhead_position(&playhead[tn]);
+
     for (u8 v = 0; v < VOICE_COUNT; v++) {
+      u8 edge_idx = 0;
+      // add falling edge for gates which are high at the end of the previous phasor cycle
+      if (carry[wn].f.set) {
+        waves[wn].edges[edge_idx].v = carry[wn].v;
+        carry[wn].v = 0; // clear the carry so we don't repeat
+      }
+
       pattern_t *pat = track_view_pattern(&view[tn]);
       trig_t t = pat->step[sn].voice[v];
+
       if (t.enabled && t.value) {
-        // for now straight in time trigger
-        waves[wn].edges[0] = MID_PHASE;
-        waves[wn].edges[1] = MID_PHASE + 16; // FIXME: this is assuming a specific PPQ
+        // determine rise
+        u8 rise = MID_PHASE + t.timing;
+        if (waves[wn].edges[edge_idx].f.set) {
+          if (rise > waves[wn].edges[edge_idx].f.offset) {
+            // only add a trigger if lands after the previous, otherwise tie
+            ++edge_idx;
+            waves[wn].edges[edge_idx++].v = edge_pack(1, rise);
+          } else {
+            // rise comes before previous fall, erase previous fall
+            waves[wn].edges[edge_idx].v = 0;
+          }
+        } else {
+          waves[wn].edges[edge_idx++].v = edge_pack(1, rise);
+        }
+
+        // determine fall
+        u8 fall = rise + 4;
+        if (fall > PPQ) {
+          carry[wn].v = edge_pack(0, fall - PPQ);
+        } else {
+          // FIXME: what happens if fall == PPQ?
+          waves[wn].edges[edge_idx++].v = edge_pack(0, fall);
+        }
       }
       wn++;
     }
+
     // extra to skip over 4th tr
     wn++;
   }
@@ -605,10 +690,9 @@ static void process_phasor(u8 now, bool reset) {
   }
 
   for (u8 wn = 0; wn < 8; wn++) {
-    u8 edge = waves[wn].edges[waves[wn].cursor];
-    if (edge != 0 && edge == now) {
-      // at an edge, toggle tr
-      get_tr(wn) ? clr_tr(wn) : set_tr(wn);
+    edge_t edge = waves[wn].edges[waves[wn].cursor];
+    if (edge.f.set && edge.f.offset == now) {
+      edge.f.level ? set_tr(wn) : clr_tr(wn);
       waves[wn].cursor++;
     }
   }
@@ -622,16 +706,42 @@ inline static void do_row_selection(u8 state) {
   row_selection = state;
 }
 
-static void do_step_key(track_view_t *v, u8 x, u8 y, u8 z) {
-  if (z == 1) {
-    u8 n = v->page * PAGE_SIZE + x;
-    pattern_t *pat = track_view_pattern(v);
-    step_t *s = &pat->step[n];
+static void do_step_key(u8 tn, u8 x, u8 y, u8 z) {
+  track_view_t *v = &view[tn];
+  pattern_t *pat = track_view_pattern(v);
+  u8 n = v->page * PAGE_SIZE + x;
+  step_t *s = &pat->step[n];
 
+  if (z == 1) {
     if (step_selection) {
       step_toggle_select(s, y);
     } else {
-      step_toggle(s, y);
+      // only focus on the step if it is enabled
+      // track the last press step key
+      // NOTE: n could be > than the track length
+      step_focus.track = tn;
+      step_focus.step = n;
+      step_focus.voice = y;
+      step_focus.z = step_get(s, y) != 0;
+      step_focus.hold_count = 3; // NOTE: keytimer period is 50 so this is 50 * 3
+      step_focus.fresh_trig = false;
+
+      if (step_get(s, y) == 0) {
+        step_set(s, y, 1);
+        step_focus.z = 1;
+        step_focus.fresh_trig = true;
+        // print_dbg("\r\n > trig set");
+      }
+    }
+  } else {
+    // z == 0
+    if (step_focus.track == tn && step_focus.step == n && step_focus.voice == y) {
+      if (step_focus.hold_count > 0 && step_get(s, y) != 0 && !step_focus.fresh_trig) {
+        // quick press and release, toggle
+        step_set(s, y, 0);
+        // print_dbg("\r\n > trig clear");
+      }
+      step_focus.z = 0;
     }
   }
 }
@@ -664,6 +774,34 @@ static void do_len_key(track_view_t *v, u8 x, u8 y, u8 z) {
       }
       print_dbg("\r\n len: ");
       print_dbg_ulong(pat->length);
+    }
+  }
+}
+
+static void do_focused_step_timing(s8 direction) {
+  if (step_focus.z == 1) {
+    pattern_t *pat = track_view_pattern(&view[step_focus.track]);
+    if (step_focus.step < pat->length) {
+      trig_t *t = &pat->step[step_focus.step].voice[step_focus.voice];
+      if (direction == 0) {
+        t->timing = 0;
+        print_dbg("\r\n timing reset");
+      } else {
+        s8 delta = direction;
+        if (direction == -2 || direction == 2) {
+          delta *= 4;
+        }
+        t->timing = sclip(t->timing + delta, -MID_PHASE, MID_PHASE);
+        print_dbg("\r\n timing = ");
+        if (t->timing < 0) {
+          print_dbg("-");
+          print_dbg_ulong(abs(t->timing));
+        } else {
+          print_dbg_ulong(t->timing);
+        }
+      }
+    } else {
+      print_dbg("\r\n focused step > pattern length");
     }
   }
 }
