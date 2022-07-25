@@ -16,13 +16,15 @@
 - [x] variable length track
 - [ ] tempo set by grid specification (i.e. 120 bpm)
 - [ ] tempo set by ii
-- [ ] explicit swing / micro timing
+- [ ] swing
+- [x] micro timing
 - [ ] variable gate length
 - [ ] mute groups
 - [ ] per step ratchet
 - [ ] live record of pattern?
 - [ ] quantize recorded pattern?
-- [ ] multiple patterns per track
+- [x] multiple patterns per track
+  - [ ] switching patterns adjusts playhead length (current bug)
 - [x] base clock output (on out)
 - [ ] note priority (in 2 track mode)
 - [ ] clock in is reset or manually advance track 2
