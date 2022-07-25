@@ -61,6 +61,11 @@ typedef struct {
   bool fresh_trig;
 } focused_step_t;
 
+typedef struct {
+  cue_mode_t cue;
+  u8 z;
+} live_cue_t;
+
 //------------------------------
 //------ prototypes
 
@@ -92,6 +97,7 @@ static void build_waves(void);
 static void handle_key_upper_step(u8 x, u8 y, u8 z);
 static void handle_key_upper_len(u8 x, u8 y, u8 z);
 static void handle_key_upper_pat(u8 x, u8 y, u8 z);
+static void handle_key_cue(u8 track_num, u8 x, u8 y, u8 z);
 static bool handle_key_control(u8 x, u8 y, u8 z);
 
 static void do_step_key(u8 tn, u8 x, u8 y, u8 z);
@@ -109,6 +115,7 @@ inline static u16 edge_pack(u8 level, u16 offset);
 static ui_mode_t ui_mode;
 static track_view_t view[GRID_NUM_TRACKS];
 static playhead_t playhead[GRID_NUM_TRACKS];
+static live_cue_t live_cue[GRID_NUM_TRACKS] = { {0, 0}, {0, 0} };
 
 static u8 step_selection = 0;
 static u8 row_selection = 0;
@@ -203,11 +210,6 @@ void handler_GridPollADC(s32 data) {
     i = i >> 3; // [0-512]
 
     if (i != last_poll) {
-      // 500ms - 12ms
-      // clock_time = 25000 / (i + 25);
-      // print_dbg("\r\nclock (ms): ");
-      // print_dbg_ulong(clock_time);
-      // clock_set(clock_time);
       print_dbg("\r\n raw = ");
       print_dbg_ulong(i);
       print_dbg(" ");
@@ -349,13 +351,23 @@ static void handle_key_upper_len(u8 x, u8 y, u8 z) {
 }
 
 static void handle_key_upper_pat(u8 x, u8 y, u8 z) {
+
+  if (x <= 3) {
+    // cue area + gutter
+    if (y <= 2) {
+      handle_key_cue(0, x, y, z);
+      return;
+    } else {
+      handle_key_cue(1, x, y - 3, z);
+      return;
+    }
+  }
+
+  // FIXME: refactor z handling
   if (z == 0)
     return;
 
-  if (x <= 3) {
-    // cue area
-    print_dbg("\r\n cue area");
-  } else if (x <= 7) {
+  if (x <= 7) {
     // pattern area
     print_dbg("\r\n pattern: ");
     u8 p = (y * 4) + (x - 4);
@@ -384,6 +396,30 @@ static void handle_key_upper_pat(u8 x, u8 y, u8 z) {
     }
   } else {
     print_dbg("\r\n empty pattern view key");
+  }
+}
+
+static void handle_key_cue(u8 track_num, u8 x, u8 y, u8 z) {
+  print_dbg("\r\n cue area, t: ");
+  print_dbg_ulong(track_num);
+  if (x < 3) {
+    if (y == 0) {
+      // cue select
+      live_cue[track_num].cue = x;
+      live_cue[track_num].z = z;
+      print_dbg("\r\n live cue: ");
+      print_dbg_ulong(x);
+      print_dbg(" ");
+      print_dbg_ulong(z);
+    } else if (y == 1) {
+      // default cue mode
+      if (z == 1) {
+        view[track_num].track->cue = x;
+        monomeFrameDirty++;
+        print_dbg("\r\n default cue: ");
+        print_dbg_ulong(x);
+      }
+    }
   }
 }
 
@@ -556,8 +592,8 @@ static void render_grid(void) {
     break;
 
   case uiPattern:
-    render_cue_mode(0, 0, cueNone);
-    render_cue_mode(0, 3, cueNone);
+    render_cue_mode(0, 0, view[0].track->cue);
+    render_cue_mode(0, 3, view[1].track->cue);
 
     render_pattern_area(4, 0);
     render_meta_area(9, 0);
